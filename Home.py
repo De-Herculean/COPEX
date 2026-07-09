@@ -1,5 +1,5 @@
 """
-Levisol Supply Chain Planning Tool
+Castrol Optimization & Planning EXpert (COPEX)
 Castrol POWER UP 4.0 — "Balancing Act" case submission
 
 Home page: case context + the single button that runs the full pipeline
@@ -23,7 +23,7 @@ from core.export import build_full_plan_workbook
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
 st.set_page_config(
-    page_title="Levisol Supply Chain Planner",
+    page_title="Castrol Optimization & Planning EXpert (COPEX)",
     page_icon="📦",
     layout="wide",
 )
@@ -45,7 +45,7 @@ def _init_state():
 
 _init_state()
 
-st.title("📦 Levisol Supply Chain Planning Tool")
+st.title("📦 Castrol Optimization & Planning EXpert (COPEX)")
 st.caption("Castrol POWER UP 4.0 · \"Balancing Act\" — Optimizing Production and Distribution")
 
 st.markdown(
