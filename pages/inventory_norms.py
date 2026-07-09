@@ -1,7 +1,7 @@
 import streamlit as st
 import pandas as pd
 
-st.title("📦 Inventory Norms — Component 1")
+st.title("📦 Inventory Norms")
 st.caption("Safety stock, reorder point, and days of cover per SKU × CFA, plus hub-level buffers.")
 
 results = st.session_state.get("results")

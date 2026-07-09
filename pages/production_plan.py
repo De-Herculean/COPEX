@@ -3,7 +3,7 @@ import pandas as pd
 
 from core.export import build_full_plan_workbook
 
-st.title("🏭 Production & Distribution Plan — Component 2")
+st.title("🏭 Production & Distribution Plan")
 
 results = st.session_state.get("results")
 if results is None:
