@@ -65,9 +65,39 @@ data/Data.xlsx                # bundled default dataset
   modeling gap surfaces honestly rather than being papered over: the optimizer has no separate
   "holding cost" line distinct from the hub safety-stock shortfall cost it already tracks, so
   that component reports ₹0 in the cost breakdown.
+- **`inventory.py`**: hub safety-stock service level was hardcoded to 98% inside
+  `calculate_hub_safety_stock`, with no way to change it — a direct gap against Component 3's
+  requirement that hub safety-stock requirements be editable. `InventoryPlanner` now takes
+  `hub_service_level` as a constructor parameter (still defaults to 98%), threaded through
+  `pipeline.run_full_pipeline` and exposed as a slider on both the Home and Data Inputs pages.
+  Verified this actually moves the output: 85% → 99% roughly doubles average hub safety stock.
 - If cost allocation or routing fails for any reason on a given run, the app catches it, shows a
   warning banner, and still renders the headline cost summary / production plan — it doesn't crash
   the whole page.
+
+## Component 3 requirements — how the app addresses each
+
+**"Accept variable inputs... editable without breaking the model"**
+Demand (Jan Forecast + Sales/Forecast History), plant capacities, production costs, transport
+costs, and now hub safety-stock service level are all editable from the UI. The Data Inputs page
+uses `num_rows="fixed"` (no ad-hoc add/delete of rows) because these tables are joined across
+sheets by Product/CFA — freely adding a row in one sheet without matching rows elsewhere would
+silently break that join rather than erroring clearly. Adding or retiring a SKU/CFA requires
+editing the source workbook and re-uploading it from Home.
+
+**"Produce a clear, actionable output... a planner can read, share, and act on"**
+Each output (inventory norms, production plan, routing plan, cost summary) has its own page with
+filters and a CSV download. On top of that, `core/export.py` bundles everything into one
+multi-sheet Excel workbook (`⬇ Download the full plan`, available on Home and the Production Plan
+page) — one file a planner can save or email instead of assembling several CSVs by hand.
+
+**"Handle infeasibility gracefully"**
+The MILP always keeps unmet-demand and hub-shortfall slack variables, so it essentially never goes
+truly infeasible from a demand-exceeds-capacity situation — it under-serves instead, and the app
+surfaces exactly that: an Unmet Demand tab (by how much, per SKU/CFA), a penalty cost line item in
+the Cost Summary, and a contractual-SKU warning. Genuine solver failure (only realistically from
+corrupted data, e.g. a negative capacity) is caught and shown as a clear message rather than a
+crash or traceback.
 
 ## Notes for the live demo
 

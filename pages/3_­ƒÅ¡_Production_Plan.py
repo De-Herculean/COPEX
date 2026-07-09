@@ -1,6 +1,8 @@
 import streamlit as st
 import pandas as pd
 
+from core.export import build_full_plan_workbook
+
 st.set_page_config(page_title="Production Plan", page_icon="🏭", layout="wide")
 st.title("🏭 Production & Distribution Plan — Component 2")
 
@@ -28,6 +30,13 @@ m2.metric("Total demand (kL)", f"{results.total_effective_demand_kl:,.0f}")
 m3.metric("Unmet demand (kL)", f"{results.total_unmet_kl:,.1f}")
 total_cost = results.cost_summary.set_index("Cost Component").loc["Total Cost", "Amount (INR)"]
 m4.metric("Total cost (₹)", f"{total_cost:,.0f}")
+
+st.download_button(
+    "⬇ Download the full plan (one Excel workbook: production, routing, cost, inventory norms)",
+    build_full_plan_workbook(results),
+    file_name="levisol_plan.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+)
 
 tab1, tab2, tab3, tab4 = st.tabs(
     ["Production by Plant", "Plant → Hub", "Hub → CFA", "Unmet Demand"]

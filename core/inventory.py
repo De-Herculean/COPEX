@@ -35,11 +35,18 @@ class InventoryPlanner:
     # Constructor
     ###########################################################################
 
-    def __init__(self, master_df):
+    def __init__(self, master_df, hub_service_level: float = 0.98):
 
         self.master = master_df.copy()
 
         self.inventory = None
+
+        # Hub safety-stock target service level. Exposed as a constructor
+        # parameter (was previously hardcoded to 0.98 inside
+        # calculate_hub_safety_stock) so it can be edited from the planning
+        # tool per Component 3's requirement that hub safety-stock
+        # requirements be editable.
+        self.hub_service_level = hub_service_level
 
         self.validate_master()
 
@@ -374,8 +381,8 @@ class InventoryPlanner:
         logger.info("Calculating Hub Safety Stock...")
 
         source_column = None
-        # Use fixed hub service level as per specification
-        hub_service_level = 0.98
+        # Hub service level is now a configurable parameter (see __init__)
+        hub_service_level = self.hub_service_level
         hub_z = float(norm.ppf(hub_service_level))
         if "source_hub" in self.master.columns:
             source_column = "source_hub"

@@ -63,19 +63,31 @@ m3.metric(f"{left_name}: Fill Rate", f"{left.fill_rate:.2%}")
 m4.metric(f"{right_name}: Fill Rate", f"{right.fill_rate:.2%}",
           delta=f"{(right.fill_rate - left.fill_rate) * 100:.2f} pp")
 
+m5, m6 = st.columns(2)
+m5.metric(f"{left_name}: Hub Service Level", f"{left.hub_service_level:.0%}")
+m6.metric(f"{right_name}: Hub Service Level", f"{right.hub_service_level:.0%}")
+
 st.divider()
 st.subheader("Cost component comparison")
 
-l_cs = left.cost_summary.set_index("Cost Component")["Amount (INR)"].rename(left_name)
-r_cs = right.cost_summary.set_index("Cost Component")["Amount (INR)"].rename(right_name)
-combined = pd.concat([l_cs, r_cs], axis=1)
-combined["Δ"] = combined[right_name] - combined[left_name]
+if left_name == right_name and len(names) > 1:
+    st.info("Scenario A and B are the same — pick two different saved scenarios to see a diff.")
+
+l_cs = left.cost_summary.set_index("Cost Component")["Amount (INR)"]
+r_cs = right.cost_summary.set_index("Cost Component")["Amount (INR)"]
+combined = pd.DataFrame({"__A__": l_cs, "__B__": r_cs})
+combined["Δ"] = combined["__B__"] - combined["__A__"]
+combined = combined.rename(columns={"__A__": left_name, "__B__": right_name})
+# If both selections are the same scenario, left_name == right_name would collide again --
+# disambiguate the display labels in that case only.
+if left_name == right_name:
+    combined.columns = [f"{left_name} (A)", f"{right_name} (B)", "Δ"]
 
 st.dataframe(
     combined.style.format("₹{:,.0f}"),
     use_container_width=True,
 )
-st.bar_chart(combined[[left_name, right_name]])
+st.bar_chart(combined.iloc[:, [0, 1]])
 
 st.divider()
 st.subheader("Unmet demand comparison")

@@ -15,7 +15,11 @@ st.set_page_config(page_title="Data Inputs", page_icon="📊", layout="wide")
 st.title("📊 Data Inputs")
 st.caption(
     "Every number the monthly plan depends on lives here: demand, plant capacities, "
-    "production costs, and transport costs. Edit a cell, then re-run — no code required."
+    "production costs, and transport costs. Edit a cell, then re-run — no code required. "
+    "Rows are fixed (no add/delete) because these tables are linked across sheets by "
+    "Product/CFA — adding a SKU here without matching rows elsewhere would silently break "
+    "the join. To add or retire a SKU/CFA, edit the source workbook directly and re-upload it "
+    "from the Home page."
 )
 
 workbook_path = st.session_state.get("workbook_path")
@@ -33,6 +37,18 @@ if "edited_sheets" not in st.session_state or st.session_state.get("edited_sheet
 sheets = st.session_state["edited_sheets"]
 sheet_map = st.session_state["sheet_map"]
 
+st.subheader("Hub safety-stock requirement")
+st.session_state.setdefault("hub_service_level", 0.98)
+st.session_state["hub_service_level"] = st.slider(
+    "Target service level for hub safety stock (%)",
+    80, 99, int(st.session_state["hub_service_level"] * 100),
+    help="Applied to both Mother Hub West and Mother Hub East when sizing the hub safety-stock "
+         "buffer. This is a model parameter (not a workbook cell), included here alongside the "
+         "other editable inputs since it's one of the five levers Component 3 calls out.",
+) / 100
+
+st.divider()
+
 tabs = st.tabs([FRIENDLY_NAMES.get(k, k) for k in DISPLAY_ORDER if k in sheets])
 
 for tab, key in zip(tabs, [k for k in DISPLAY_ORDER if k in sheets]):
@@ -42,7 +58,7 @@ for tab, key in zip(tabs, [k for k in DISPLAY_ORDER if k in sheets]):
         edited = st.data_editor(
             sheets[key],
             use_container_width=True,
-            num_rows="dynamic",
+            num_rows="fixed",
             key=f"editor_{key}",
             height=min(70 + 35 * n_rows, 500) if n_rows else 100,
         )
@@ -76,6 +92,7 @@ if apply_clicked:
             out_path,
             time_limit_seconds=st.session_state.get("time_limit_seconds", 60),
             truck_capacity=st.session_state.get("truck_capacity", 25.0),
+            hub_service_level=st.session_state.get("hub_service_level", 0.98),
         )
         st.session_state["results"] = results
         st.session_state["workbook_path"] = str(out_path)

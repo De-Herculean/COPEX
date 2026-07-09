@@ -18,6 +18,7 @@ from pathlib import Path
 import streamlit as st
 
 from core.pipeline import run_full_pipeline
+from core.export import build_full_plan_workbook
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 
@@ -39,6 +40,7 @@ def _init_state():
     st.session_state.setdefault("scenarios", {})
     st.session_state.setdefault("time_limit_seconds", 60)
     st.session_state.setdefault("truck_capacity", 25.0)
+    st.session_state.setdefault("hub_service_level", 0.98)
 
 
 _init_state()
@@ -83,7 +85,7 @@ with col1:
 
     st.caption(f"Current dataset: `{Path(st.session_state['workbook_path']).name}`")
 
-    with st.expander("Solver settings"):
+    with st.expander("Solver & inventory settings"):
         st.session_state["time_limit_seconds"] = st.slider(
             "MILP time limit (seconds)", 10, 180, st.session_state["time_limit_seconds"],
             help="30–60s is normally enough for this network size. Raise it if the solver "
@@ -92,6 +94,12 @@ with col1:
         st.session_state["truck_capacity"] = st.number_input(
             "Truck capacity (kL per truckload)", value=st.session_state["truck_capacity"], step=1.0,
         )
+        st.session_state["hub_service_level"] = st.slider(
+            "Hub safety-stock service level (%)", 80, 99, int(st.session_state["hub_service_level"] * 100),
+            help="Target service level used to size the safety-stock buffer at both Mother Hubs. "
+                 "Higher = more buffer stock held at the hubs, lower cash released. This was "
+                 "previously a fixed 98% in the underlying model; it's now a planning lever.",
+        ) / 100
 
     run_clicked = st.button("▶ Run Full Planning Pipeline", type="primary", use_container_width=True)
 
@@ -108,6 +116,15 @@ with col2:
                    if not res.cost_summary.empty else "—")
         if st.session_state["last_run_seconds"] is not None:
             st.caption(f"Last run took {st.session_state['last_run_seconds']:.1f}s")
+        if res.is_feasible:
+            st.download_button(
+                "⬇ Download full plan (Excel)",
+                build_full_plan_workbook(res),
+                file_name="levisol_plan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+                key="status_panel_download",
+            )
 
 if run_clicked:
     progress = st.progress(0, text="Starting pipeline...")
@@ -118,6 +135,7 @@ if run_clicked:
             st.session_state["workbook_path"],
             time_limit_seconds=st.session_state["time_limit_seconds"],
             truck_capacity=st.session_state["truck_capacity"],
+            hub_service_level=st.session_state["hub_service_level"],
         )
         progress.progress(90, text="Finalizing...")
         st.session_state["results"] = results
@@ -130,6 +148,13 @@ if run_clicked:
                 f"total cost ₹{results.cost_summary.set_index('Cost Component').loc['Total Cost','Amount (INR)']:,.0f}. "
                 f"Open **Inventory Norms**, **Production Plan**, **Routing & Map**, or **Cost Summary** "
                 f"from the sidebar."
+            )
+            st.download_button(
+                "⬇ Download the full plan (one Excel workbook)",
+                build_full_plan_workbook(results),
+                file_name="levisol_plan.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
             )
         else:
             st.error(

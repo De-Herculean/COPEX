@@ -114,6 +114,7 @@ class PlanningResults:
     master: pd.DataFrame
     inventory_norms: pd.DataFrame
     hub_inventory_norms: pd.DataFrame
+    hub_service_level: float
     solve_status: str
     production_plan: pd.DataFrame
     plant_hub_plan: pd.DataFrame
@@ -206,6 +207,7 @@ def run_full_pipeline(
     excel_path: str | Path,
     time_limit_seconds: int = 60,
     truck_capacity: float = 25.0,
+    hub_service_level: float = 0.98,
 ) -> PlanningResults:
     """
     Run the complete Levisol/Castrol monthly planning pipeline end to end.
@@ -217,6 +219,10 @@ def run_full_pipeline(
         network size (3 plants x 2 hubs x 10 CFAs x 100 SKUs); raise it if a
         scenario comes back NOT_SOLVED / ABNORMAL.
     truck_capacity : kL per truckload, used for the routing/dispatch view.
+    hub_service_level : target service level (0-1) used to set the hub
+        safety-stock buffer at both Mother Hubs. Editable per Component 3's
+        requirement that hub safety-stock requirements be a tunable input,
+        not a hardcoded constant.
     """
 
     warnings: list[str] = []
@@ -227,7 +233,7 @@ def run_full_pipeline(
     master = processor.preprocess()
 
     logger.info("Stage 2/5: Calculating inventory norms...")
-    inv_planner = InventoryPlanner(master)
+    inv_planner = InventoryPlanner(master, hub_service_level=hub_service_level)
     inventory_norms, hub_inventory_norms = inv_planner.run()
 
     # ---- Component 2: production & distribution optimization ------------
@@ -314,6 +320,7 @@ def run_full_pipeline(
         master=master,
         inventory_norms=inventory_norms,
         hub_inventory_norms=hub_inventory_norms,
+        hub_service_level=hub_service_level,
         solve_status=solve_status,
         production_plan=opt_results["production_plan"],
         plant_hub_plan=opt_results["plant_hub_plan"],
