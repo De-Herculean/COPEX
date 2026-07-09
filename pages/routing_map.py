@@ -3,7 +3,6 @@ import plotly.graph_objects as go
 
 from core.pipeline import LOCATIONS
 
-st.set_page_config(page_title="Routing & Map", page_icon="🗺️", layout="wide")
 st.title("🗺️ Routing & Dispatch")
 st.caption("Plant → Hub → CFA flows for the current plan, with truckload counts by lane.")
 

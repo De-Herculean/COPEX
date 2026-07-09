@@ -11,7 +11,6 @@ from core.pipeline import run_full_pipeline
 WORKDIR = Path(tempfile.gettempdir()) / "levisol_planner"
 WORKDIR.mkdir(exist_ok=True)
 
-st.set_page_config(page_title="Data Inputs", page_icon="📊", layout="wide")
 st.title("📊 Data Inputs")
 st.caption(
     "Every number the monthly plan depends on lives here: demand, plant capacities, "

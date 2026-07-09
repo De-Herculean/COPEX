@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Cost Summary", page_icon="💰", layout="wide")
 st.title("💰 Cost Summary")
 
 results = st.session_state.get("results")

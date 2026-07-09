@@ -3,7 +3,6 @@ import pandas as pd
 
 from core.export import build_full_plan_workbook
 
-st.set_page_config(page_title="Production Plan", page_icon="🏭", layout="wide")
 st.title("🏭 Production & Distribution Plan — Component 2")
 
 results = st.session_state.get("results")

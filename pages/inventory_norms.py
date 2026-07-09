@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Inventory Norms", page_icon="📦", layout="wide")
 st.title("📦 Inventory Norms — Component 1")
 st.caption("Safety stock, reorder point, and days of cover per SKU × CFA, plus hub-level buffers.")
 

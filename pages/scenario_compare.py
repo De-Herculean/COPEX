@@ -1,7 +1,6 @@
 import pandas as pd
 import streamlit as st
 
-st.set_page_config(page_title="Scenario Compare", page_icon="🔄", layout="wide")
 st.title("🔄 Scenario Compare")
 st.caption(
     "Save the current plan as a named scenario, then compare it against another — useful for "
