@@ -70,15 +70,19 @@ open-ended and several inputs are not fully specified):
       Q3's mandate is "release cash" vs. "protect service" -- exactly the
       trade-off the CSO asked the team to quantify, not assume away.
 
-  A4. Unmet demand always carries the SKU's own penalty cost (Exhibit D),
-      multiplied by:
-        - a tier-priority weight (A > B > C > D) so that, when the network
-          is capacity constrained, higher-tier SKUs are protected first, and
-        - an extra multiplier for contractual SKUs, reflecting that
-          under-supplying them causes reputational/contractual damage beyond
-          the normal lost-margin calculation.
-      Both weights are assumption-driven constants declared at the top of
-      this module so a planner can tune them without touching the model.
+  A4. Unmet demand carries the SKU's own penalty cost, taken directly from
+      Exhibit D's "Penalty cost (per kL)" column -- no additional tier or
+      contractual multiplier is applied on top of it. (An earlier version of
+      this model added a tier-priority weight and a 5x contractual
+      multiplier; those were removed because the case brief does not specify
+      either figure, and Exhibit D's penalty cost is the only unmet-demand
+      cost figure it actually gives.) Tier-based prioritization is still
+      honored, but only where the case specifies it: through the
+      tier-differentiated service levels (Exhibit F) used to size safety
+      stock in inventory.py, not by scaling this objective's penalty term.
+      Contractual SKUs are still flagged in every output (the "Contractual"
+      column) so a planner can see which under-served SKUs carry that risk,
+      even though it no longer changes the solver's cost calculation.
 
   A5. Pack size (Exhibit D, e.g. "20 X 900 ML", "1 X 210 LT") is parsed to
       the *individual container volume*, which is then bucketed into the
@@ -138,21 +142,6 @@ logger = logging.getLogger(__name__)
 # off a shortfall only when producing/holding the buffer is genuinely more
 # expensive. Override via SupplyChainOptimizer(hub_shortfall_cost=...).
 DEFAULT_HUB_SHORTFALL_COST_PER_KL = 2500.0
-
-# Tier-priority weighting multiplied onto each SKU's per-kL penalty cost so
-# that, under capacity pressure, higher commercial-importance tiers are
-# protected first (Exhibit F: A/B/C/D).
-TIER_PRIORITY_WEIGHT = {
-    "A": 4.0,
-    "B": 3.0,
-    "C": 2.0,
-    "D": 1.0,
-}
-DEFAULT_TIER_WEIGHT = 1.0
-
-# Extra multiplier applied to the unmet-demand penalty for SKUs carrying a
-# contractual supply commitment (Exhibit D "Contractual?" flag).
-DEFAULT_CONTRACTUAL_MULTIPLIER = 5.0
 
 # Batch size mandated by the assignment (Exhibit A footnote).
 BATCH_SIZE_KL = 25.0
@@ -303,9 +292,9 @@ class SupplyChainOptimizer:
         "plant_data", "plant_hub_cost", "hub_cfa_cost", "sku_master",
         "opening_inventory", "jan_forecast".
 
-    hub_shortfall_cost, contractual_multiplier
-        Optional overrides for the assumption-driven constants documented
-        at the top of this module.
+    hub_shortfall_cost
+        Optional override for the assumption-driven hub safety-stock
+        shortfall cost documented at the top of this module.
 
     Outputs (after .run())
     -----------------------
@@ -328,8 +317,6 @@ class SupplyChainOptimizer:
         hub_inventory: pd.DataFrame,
         data: Dict[str, pd.DataFrame],
         hub_shortfall_cost: float = DEFAULT_HUB_SHORTFALL_COST_PER_KL,
-        contractual_multiplier: float = DEFAULT_CONTRACTUAL_MULTIPLIER,
-        tier_weights: Dict[str, float] = None,
     ):
 
         logger.info("Initializing Supply Chain Optimizer...")
@@ -344,8 +331,6 @@ class SupplyChainOptimizer:
         self.data = data
 
         self.hub_shortfall_cost = float(hub_shortfall_cost)
-        self.contractual_multiplier = float(contractual_multiplier)
-        self.tier_weights = tier_weights or TIER_PRIORITY_WEIGHT
 
         #######################################################################
         # OR-Tools Solver
@@ -724,21 +709,16 @@ class SupplyChainOptimizer:
 
         #######################################################################
         # Unmet-Demand Penalty Weight per Product (A4)
+        #
+        # Directly the SKU's Exhibit D penalty cost -- no tier or contractual
+        # multiplier. (Tier prioritization is still honored through Exhibit
+        # F's differentiated service levels in the inventory-norms stage;
+        # contractual status is still surfaced in every output table for
+        # visibility, it just doesn't scale this cost term.)
         #######################################################################
 
         for product in self.products:
-            base_penalty = self.penalty_cost.get(product, 0.0)
-            tier = self.tier.get(product)
-            tier_weight = self.tier_weights.get(tier, DEFAULT_TIER_WEIGHT)
-            contractual_multiplier = (
-                self.contractual_multiplier
-                if self.contractual.get(product, False)
-                else 1.0
-            )
-
-            self.unmet_weight[product] = (
-                base_penalty * tier_weight * contractual_multiplier
-            )
+            self.unmet_weight[product] = self.penalty_cost.get(product, 0.0)
 
         #######################################################################
         # January Forecast & Opening Inventory (straight from raw Exhibits,
@@ -1315,14 +1295,16 @@ class SupplyChainOptimizer:
             for cfa in self.cfas:
                 qty = value(self.unmet[(product, cfa)])
                 if qty > 1e-6:
+                    penalty_rate = self.penalty_cost.get(product, 0.0)
+                    is_contractual = self.contractual.get(product, False)
                     unmet_rows.append({
                         "Product": product,
                         "CFA": cfa,
-                        "Tier": self.tier.get(product, ""),
-                        "Contractual": self.contractual.get(product, False),
+                        "Tier": self.tier.get(product) or "",
+                        "Contractual": is_contractual,
                         "Unmet Demand (kL)": qty,
-                        "Penalty Cost (per kL)": self.penalty_cost.get(product, 0.0),
-                        "Cost of Unmet Demand": qty * self.unmet_weight.get(product, 0.0),
+                        "Penalty Cost (per kL)": penalty_rate,
+                        "Cost of Unmet Demand": qty * penalty_rate,
                     })
         self.unmet_plan = pd.DataFrame(unmet_rows)
 

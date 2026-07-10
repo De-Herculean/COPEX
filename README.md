@@ -29,24 +29,34 @@ and run it on any internal host; the workflow is identical either way.
 ## Project layout
 
 ```
-app.py                      # Home: pipeline run button + status
+app.py                        # Navigation router (st.Page/st.navigation) -- sets menu
+                               # labels/icons in code instead of emoji-in-filenames
 core/
-  preprocessing.py          # workbook loading, cleaning, master dataset (as submitted)
-  inventory.py               # safety stock / reorder point / days of cover (as submitted)
-  optimization.py            # OR-Tools MILP: production & distribution (as submitted)
-  costing.py                 # plant/hub/product cost allocation (as submitted, see note below)
-  routing.py                  # dispatch & truckload reporting (bugfixed, see note below)
-  pipeline.py                 # orchestrates all five stages + schema adapters
-  data_io.py                  # editable-sheet loading / workbook rebuild for Data Inputs page
+  preprocessing.py            # workbook loading, cleaning, master dataset (as submitted)
+  inventory.py                 # safety stock / reorder point / days of cover (as submitted)
+  optimization.py              # OR-Tools MILP: production & distribution (as submitted)
+  costing.py                   # plant/hub/product cost allocation (as submitted, see note below)
+  routing.py                    # dispatch & truckload reporting (bugfixed, see note below)
+  pipeline.py                   # orchestrates all five stages + schema adapters
+  data_io.py                    # editable-sheet loading / workbook rebuild for Data Inputs page
+  export.py                     # bundles every output into one downloadable Excel workbook
 pages/
-  1_Data_Inputs.py            # editable demand / capacity / cost tables
-  2_Inventory_Norms.py        # Component 1 deliverable
-  3_Production_Plan.py        # Component 2 deliverable
-  4_Routing_Map.py             # map + lane/truckload view
-  5_Cost_Summary.py            # cost breakdown views
-  6_Scenario_Compare.py        # save & diff two scenarios
-data/Data.xlsx                # bundled default dataset
+  home.py                       # pipeline run button + status (was app.py's content)
+  data_inputs.py                 # editable demand / capacity / cost tables
+  inventory_norms.py             # Component 1 deliverable
+  production_plan.py             # Component 2 deliverable
+  routing_map.py                  # map + lane/truckload view
+  cost_summary.py                 # cost breakdown views
+  scenario_compare.py             # save & diff two scenarios
+data/Data.xlsx                  # bundled default dataset
 ```
+
+**Note on the menu labels**: earlier versions used filenames like `1_📊_Data_Inputs.py`, relying
+on Streamlit's classic auto-discovery to turn the filename into the sidebar label. That's fragile
+across platforms -- the emoji bytes can get mangled when a zip is extracted on a system with a
+different default filename encoding (this is what caused garbled sidebar text like `fôè Data
+Inputs`). The router now uses `st.Page(..., title=..., icon=...)` so labels are plain Python
+strings that render correctly regardless of OS or how the folder was unzipped.
 
 ## Fixes applied to the original modules
 
@@ -71,6 +81,15 @@ data/Data.xlsx                # bundled default dataset
   `hub_service_level` as a constructor parameter (still defaults to 98%), threaded through
   `pipeline.run_full_pipeline` and exposed as a slider on both the Home and Data Inputs pages.
   Verified this actually moves the output: 85% → 99% roughly doubles average hub safety stock.
+- **`optimization.py`**: unmet-demand penalty previously applied a tier-priority weight (A=4×,
+  B=3×, C=2×, D=1×) and a 5× contractual multiplier on top of Exhibit D's per-kL penalty cost.
+  Neither figure is specified in the case brief — Exhibit D gives only the raw penalty cost and a
+  binary contractual flag — so both multipliers were removed. Unmet-demand cost is now exactly
+  `Unmet (kL) × Exhibit D's penalty cost (per kL)`, nothing else. Tier and Contractual are still
+  shown as informational columns in every unmet-demand output (a planner can still see which
+  under-served SKUs are contractual or high-tier), they just no longer scale the cost. Tier
+  prioritization is still honored where the case does specify it — Exhibit F's differentiated
+  service levels, used to size safety stock in Component 1.
 - If cost allocation or routing fails for any reason on a given run, the app catches it, shows a
   warning banner, and still renders the headline cost summary / production plan — it doesn't crash
   the whole page.
